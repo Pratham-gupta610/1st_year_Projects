@@ -52,7 +52,7 @@
    Logs the current value of the input box to verify it worked.
    It will print 23 in the console.
 */
-let secretNumber = Math.trunc(Math.random() * 50) + 1;
+let secretNumber = Math.trunc(Math.random() * 100) + 1;
 
 let score = 20;
 let highscore = 0;
