@@ -11,8 +11,8 @@
    document → refers to the entire HTML page.
    querySelector('.message') → selects the first HTML element with the class "message".
    textContent → reads the text inside that element.
-   console.log(...) → prints that text in the browser console for debugging.
-   So this line prints the initial message shown on the webpage (like "Start guessing...").
+  
+   using console.log this line prints the initial message shown on the webpage (like "Start guessing...").
 */
 
 // document.querySelector('.message').textContent = '🥳🎉CORRECT NUMBER!!';
@@ -52,7 +52,9 @@
    Logs the current value of the input box to verify it worked.
    It will print 23 in the console.
 */
-let secretNumber = Math.trunc(Math.random() * 100) + 1;
+
+(function () {
+  let secretNumber = Math.trunc(Math.random() * 100) + 1;
 
 let score = 20;
 let highscore = 0;
@@ -177,3 +179,6 @@ document.querySelector('.again').addEventListener('click', function () {
 //   document.querySelector('body').style.backgroundColor = '#222';
 //   document.querySelector('.number').style.width = '15rem';
 // });
+
+})();
+
