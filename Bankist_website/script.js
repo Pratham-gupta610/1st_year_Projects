@@ -12,11 +12,23 @@ const loadAccounts = function () {
   if (data) {
     const loadedAccounts = JSON.parse(data);
     accounts.splice(0, accounts.length, ...loadedAccounts);
+    // Regenerate usernames for loaded accounts
+    createUsernames(accounts);
   }
+};
+
+// Generate unique 7-digit account number
+const generateAccountNumber = function() {
+  let accountNumber;
+  do {
+    accountNumber = Math.floor(1000000 + Math.random() * 9000000).toString();
+  } while (accounts.some(acc => acc.accountNumber === accountNumber));
+  return accountNumber;
 };
 
 const account1 = {
   owner: 'Jonas Schmedtmann',
+  accountNumber: '1234567',
   movements: [200, 455.23, -306.5, 25000, -642.21, -133.9, 79.97, 1300],
   interestRate: 1.2,
   pin: 1111,
@@ -46,6 +58,7 @@ const account1 = {
 
 const account2 = {
   owner: 'Jessica Davis',
+  accountNumber: '2345678',
   movements: [5000, 3400, -150, -790, -3210, -1000, 8500, -30],
   interestRate: 1.5,
   pin: 2222,
@@ -73,10 +86,37 @@ const account2 = {
   ],
 };
 
-const accounts = [account1, account2];
+const account3 = {
+  owner: 'Raj Kumar',
+  accountNumber: '3456789',
+  movements: [10000, 5000, -2500, -1000, 15000, -3000, 8000, -500],
+  interestRate: 1.8,
+  pin: 3333,
+  movementsDates: [
+    '2019-10-15T08:30:00.000Z',
+    '2019-11-20T12:45:00.000Z',
+    '2019-12-10T15:20:00.000Z',
+    '2020-01-05T09:30:00.000Z',
+    '2020-02-14T14:00:00.000Z',
+    '2020-03-25T11:15:00.000Z',
+    '2020-05-18T16:45:00.000Z',
+    '2020-06-30T10:00:00.000Z',
+  ],
+  currency: 'INR',
+  locale: 'en-IN',
+  transactionDetails: [
+    { type: 'Initial Deposit' },
+    { type: 'Initial Deposit' },
+    { type: 'Initial Deposit' },
+    { type: 'Initial Deposit' },
+    { type: 'Initial Deposit' },
+    { type: 'Initial Deposit' },
+    { type: 'Initial Deposit' },
+    { type: 'Initial Deposit' },
+  ],
+};
 
-// Load accounts from localStorage on page load
-loadAccounts();
+const accounts = [account1, account2, account3];
 
 /////////////////////////////////////////////////
 // Elements
@@ -89,6 +129,7 @@ const labelSumIn = document.querySelector('.summary__value--in');
 const labelSumOut = document.querySelector('.summary__value--out');
 const labelSumInterest = document.querySelector('.summary__value--interest');
 const labelTimer = document.querySelector('.timer');
+const labelAccountNumber = document.querySelector('.account-number');
 
 const containerApp = document.querySelector('.app');
 const containerMovements = document.querySelector('.movements');
@@ -112,11 +153,6 @@ const modalAccount = document.querySelector('.modal-account');
 const overlayAccount = document.querySelector('.overlay-account');
 const btnCloseModal = document.querySelector('.btn--close-modal');
 const accountCreatedMessage = document.querySelector('.account-created-message');
-
-// Transaction Details Modal Elements
-const modalTransactionDetails = document.querySelector('.modal-transaction-details');
-const overlayTransactionDetails = document.querySelector('.overlay-transaction-details');
-const btnCloseTransactionModal = document.querySelector('.btn--close-transaction-modal');
 
 /////////////////////////////////////////////////
 // Functions
@@ -142,38 +178,73 @@ const formatCur = function (value, locale, currency) {
   }).format(value);
 };
 
+// Currency conversion function with real-time rates
+const convertCurrency = async function (amount, fromCurrency, toCurrency) {
+  // If same currency, no conversion needed
+  if (fromCurrency === toCurrency) {
+    return amount;
+  }
+
+  try {
+    // Fetch real-time exchange rates from API
+    const response = await fetch(
+      `https://api.exchangerate-api.com/v4/latest/${fromCurrency}`
+    );
+    const data = await response.json();
+    
+    if (data.rates && data.rates[toCurrency]) {
+      const rate = data.rates[toCurrency];
+      const convertedAmount = amount * rate;
+      console.log(`Converting ${amount} ${fromCurrency} to ${toCurrency}: ${convertedAmount} (Rate: ${rate})`);
+      return convertedAmount;
+    } else {
+      // Fallback to manual rates if API fails
+      console.log('API rate not found, using manual rates');
+      return convertCurrencyManual(amount, fromCurrency, toCurrency);
+    }
+  } catch (error) {
+    console.log('Exchange rate API failed, using manual rates:', error);
+    return convertCurrencyManual(amount, fromCurrency, toCurrency);
+  }
+};
+
+// Manual conversion rates as fallback
+const convertCurrencyManual = function (amount, fromCurrency, toCurrency) {
+  // Exchange rates (approximate values as fallback)
+  const rates = {
+    EUR: { USD: 1.08, GBP: 0.86, JPY: 161.5, INR: 91.5, EUR: 1 },
+    USD: { EUR: 0.93, GBP: 0.79, JPY: 149.5, INR: 84.8, USD: 1 },
+    GBP: { EUR: 1.17, USD: 1.27, JPY: 189.8, INR: 107.5, GBP: 1 },
+    JPY: { EUR: 0.0062, USD: 0.0067, GBP: 0.0053, INR: 0.57, JPY: 1 },
+    INR: { EUR: 0.011, USD: 0.012, GBP: 0.0093, JPY: 1.76, INR: 1 },
+  };
+
+  if (rates[fromCurrency] && rates[fromCurrency][toCurrency]) {
+    return amount * rates[fromCurrency][toCurrency];
+  }
+  
+  // If currencies not found, return original amount
+  console.log('Currency pair not found in manual rates');
+  return amount;
+};
+
 const displayMovements = function (acc, sort = false) {
   containerMovements.innerHTML = '';
 
-  const combinedMovsDates = acc.movements.map((mov, i) => ({
-    movement: mov,
-    movementDate: acc.movementsDates.at(i),
-    transactionDetails: acc.transactionDetails?.at(i) || null,
-  }));
+  const movs = sort ? acc.movements.slice().sort((a, b) => a - b) : acc.movements;
 
-  if (sort) combinedMovsDates.sort((a, b) => a.movement - b.movement);
+  movs.forEach(function (mov, i) {
+    const type = mov > 0 ? 'deposit' : 'withdrawal';
 
-  combinedMovsDates.forEach(function (obj, i) {
-    const { movement, movementDate, transactionDetails } = obj;
-    const type = movement > 0 ? 'deposit' : 'withdrawal';
-
-    const date = new Date(movementDate);
+    // Find the original index in the movements array
+    const originalIndex = acc.movements.indexOf(mov);
+    const date = new Date(acc.movementsDates[originalIndex]);
     const displayDate = formatMovementDate(date, acc.locale);
 
-    const formattedMov = formatCur(movement, acc.locale, acc.currency);
-
-    // Format full date and time for details
-    const fullDateTime = new Intl.DateTimeFormat(acc.locale, {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    }).format(date);
+    const formattedMov = formatCur(mov, acc.locale, acc.currency);
 
     const html = `
-      <div class="movements__row" data-index="${i}">
+      <div class="movements__row" data-index="${originalIndex}">
         <div class="movements__type movements__type--${type}">${
       i + 1
     } ${type}</div>
@@ -186,12 +257,18 @@ const displayMovements = function (acc, sort = false) {
   });
 
   // Add click event listeners to all movement rows
+  addTransactionClickListeners(acc);
+};
+
+const addTransactionClickListeners = function(acc) {
   document.querySelectorAll('.movements__row').forEach((row) => {
     row.addEventListener('click', function () {
-      const index = this.dataset.index;
-      const movement = combinedMovsDates[index];
-      const date = new Date(movement.movementDate);
+      const index = parseInt(this.dataset.index);
+      const movement = acc.movements[index];
+      const movementDate = acc.movementsDates[index];
+      const transactionDetails = acc.transactionDetails?.[index] || null;
       
+      const date = new Date(movementDate);
       const fullDateTime = new Intl.DateTimeFormat(acc.locale, {
         year: 'numeric',
         month: 'long',
@@ -202,34 +279,34 @@ const displayMovements = function (acc, sort = false) {
       }).format(date);
 
       // Show transaction details modal
-      showTransactionDetails(movement, fullDateTime, acc);
+      showTransactionDetails({movement, movementDate, transactionDetails}, fullDateTime, acc);
     });
   });
 };
 
 const calcDisplayBalance = function (acc) {
-  acc.balance = acc.movements.reduce((acc, mov) => acc + mov, 0);
+  acc.balance = acc.movements.reduce((sum, mov) => sum + mov, 0);
   labelBalance.textContent = formatCur(acc.balance, acc.locale, acc.currency);
 };
 
 const calcDisplaySummary = function (acc) {
   const incomes = acc.movements
     .filter(mov => mov > 0)
-    .reduce((acc, mov) => acc + mov, 0);
+    .reduce((sum, mov) => sum + mov, 0);
   labelSumIn.textContent = formatCur(incomes, acc.locale, acc.currency);
 
   const out = acc.movements
     .filter(mov => mov < 0)
-    .reduce((acc, mov) => acc + mov, 0);
+    .reduce((sum, mov) => sum + mov, 0);
   labelSumOut.textContent = formatCur(Math.abs(out), acc.locale, acc.currency);
 
   const interest = acc.movements
     .filter(mov => mov > 0)
     .map(deposit => (deposit * acc.interestRate) / 100)
-    .filter((int, i, arr) => {
+    .filter((int) => {
       return int >= 1;
     })
-    .reduce((acc, int) => acc + int, 0);
+    .reduce((sum, int) => sum + int, 0);
   labelSumInterest.textContent = formatCur(interest, acc.locale, acc.currency);
 };
 
@@ -244,12 +321,15 @@ const createUsernames = function (accs) {
     }
   });
 };
-createUsernames(accounts);
 
 const updateUI = function (acc) {
   displayMovements(acc);
   calcDisplayBalance(acc);
   calcDisplaySummary(acc);
+  // Display account number
+  if (labelAccountNumber) {
+    labelAccountNumber.textContent = `Account: ${acc.accountNumber}`;
+  }
 };
 
 const startLogOutTimer = function () {
@@ -312,6 +392,14 @@ const showTransactionDetails = function (movement, fullDateTime, acc) {
         </div>
       `;
     }
+    if (movement.transactionDetails.fromAccountNumber) {
+      detailsHTML += `
+        <div class="transaction-detail-row">
+          <span class="detail-label">From Account:</span>
+          <span class="detail-value">${movement.transactionDetails.fromAccountNumber}</span>
+        </div>
+      `;
+    }
     if (movement.transactionDetails.to) {
       detailsHTML += `
         <div class="transaction-detail-row">
@@ -320,11 +408,44 @@ const showTransactionDetails = function (movement, fullDateTime, acc) {
         </div>
       `;
     }
+    if (movement.transactionDetails.toAccountNumber) {
+      detailsHTML += `
+        <div class="transaction-detail-row">
+          <span class="detail-label">To Account:</span>
+          <span class="detail-value">${movement.transactionDetails.toAccountNumber}</span>
+        </div>
+      `;
+    }
     if (movement.transactionDetails.type) {
       detailsHTML += `
         <div class="transaction-detail-row">
           <span class="detail-label">Transaction Type:</span>
           <span class="detail-value">${movement.transactionDetails.type}</span>
+        </div>
+      `;
+    }
+    
+    // Show currency conversion info if available
+    if (movement.transactionDetails.originalCurrency && 
+        movement.transactionDetails.convertedCurrency &&
+        movement.transactionDetails.originalCurrency !== movement.transactionDetails.convertedCurrency) {
+      
+      const originalFormatted = formatCur(
+        movement.transactionDetails.originalAmount,
+        acc.locale,
+        movement.transactionDetails.originalCurrency
+      );
+      
+      const convertedFormatted = formatCur(
+        movement.transactionDetails.convertedAmount,
+        acc.locale,
+        movement.transactionDetails.convertedCurrency
+      );
+      
+      detailsHTML += `
+        <div class="transaction-detail-row conversion-info">
+          <span class="detail-label">💱 Conversion:</span>
+          <span class="detail-value">${originalFormatted} → ${convertedFormatted}</span>
         </div>
       `;
     }
@@ -347,14 +468,16 @@ let currentAccount, timer;
 btnLogin.addEventListener('click', function (e) {
   e.preventDefault();
 
-  currentAccount = accounts.find(
-    acc => acc.username === inputLoginUsername.value
-  );
+  const enteredPin = +inputLoginPin.value;
 
-  if (currentAccount?.pin === +inputLoginPin.value) {
+  // Find account ONLY by PIN
+  currentAccount = accounts.find(acc => acc.pin === enteredPin);
+
+  if (currentAccount) {
     labelWelcome.textContent = `Welcome back, ${
       currentAccount.owner.split(' ')[0]
     }`;
+
     containerApp.style.opacity = 100;
 
     const now = new Date();
@@ -378,25 +501,49 @@ btnLogin.addEventListener('click', function (e) {
     timer = startLogOutTimer();
 
     updateUI(currentAccount);
+  } else {
+    alert('Invalid PIN');
   }
 });
 
-btnTransfer.addEventListener('click', function (e) {
+btnTransfer.addEventListener('click', async function (e) {
   e.preventDefault();
   const amount = +inputTransferAmount.value;
+  const receiverAccountNumber = inputTransferTo.value.trim();
+  
+  // Find receiver by account number
   const receiverAcc = accounts.find(
-    acc => acc.username === inputTransferTo.value
+    acc => acc.accountNumber === receiverAccountNumber
   );
+  
   inputTransferAmount.value = inputTransferTo.value = '';
+
+  if (!receiverAcc) {
+    alert('Invalid account number!');
+    return;
+  }
 
   if (
     amount > 0 &&
     receiverAcc &&
     currentAccount.balance >= amount &&
-    receiverAcc?.username !== currentAccount.username
+    receiverAcc?.accountNumber !== currentAccount.accountNumber
   ) {
+    // Convert currency if needed
+    let convertedAmount = amount;
+    if (currentAccount.currency !== receiverAcc.currency) {
+      convertedAmount = await convertCurrency(
+        amount,
+        currentAccount.currency,
+        receiverAcc.currency
+      );
+    }
+
+    // Deduct from sender (original amount in sender's currency)
     currentAccount.movements.push(-amount);
-    receiverAcc.movements.push(amount);
+    
+    // Add to receiver (converted amount in receiver's currency)
+    receiverAcc.movements.push(convertedAmount);
 
     currentAccount.movementsDates.push(new Date().toISOString());
     receiverAcc.movementsDates.push(new Date().toISOString());
@@ -413,16 +560,25 @@ btnTransfer.addEventListener('click', function (e) {
     currentAccount.transactionDetails.push({
       type: 'Transfer',
       to: receiverAcc.owner,
-      toUsername: receiverAcc.username,
+      toAccountNumber: receiverAcc.accountNumber,
+      originalAmount: amount,
+      originalCurrency: currentAccount.currency,
+      convertedAmount: convertedAmount,
+      convertedCurrency: receiverAcc.currency,
     });
 
     // Add transaction details for receiver
     receiverAcc.transactionDetails.push({
       type: 'Transfer',
       from: currentAccount.owner,
-      fromUsername: currentAccount.username,
+      fromAccountNumber: currentAccount.accountNumber,
+      originalAmount: amount,
+      originalCurrency: currentAccount.currency,
+      convertedAmount: convertedAmount,
+      convertedCurrency: receiverAcc.currency,
     });
 
+    // Update UI immediately
     updateUI(currentAccount);
 
     // Save accounts after transfer
@@ -430,6 +586,9 @@ btnTransfer.addEventListener('click', function (e) {
 
     clearInterval(timer);
     timer = startLogOutTimer();
+  }
+  else if( currentAccount.balance < amount) {
+    alert("Balance is insufficient")
   }
 });
 
@@ -456,7 +615,7 @@ btnLoan.addEventListener('click', function (e) {
       });
 
       updateUI(currentAccount);
-// 
+
       // Save accounts after loan
       saveAccounts();
 
@@ -534,6 +693,14 @@ document.querySelector('.modal__form').addEventListener('submit', function (e) {
   const currency = document.getElementById('account-currency').value;
   const locale = document.getElementById('account-locale').value;
 
+  // Check if PIN already exists
+  const pinExists = accounts.some(acc => acc.pin === pin);
+
+  if (pinExists) {
+    alert('This PIN is already used. Please choose a different 4-digit PIN.');
+    return;
+  }
+
   // Validate PIN is 4 digits
   if (pin < 1000 || pin > 9999) {
     alert('PIN must be exactly 4 digits!');
@@ -542,13 +709,17 @@ document.querySelector('.modal__form').addEventListener('submit', function (e) {
 
   // Validate deposit
   if (deposit < 100) {
-    alert('Minimum initial deposit is €100');
+    alert('Minimum initial deposit is 100 (in selected currency)');
     return;
   }
+
+  // Generate unique account number
+  const accountNumber = generateAccountNumber();
 
   // Create new account object
   const newAccount = {
     owner: name,
+    accountNumber: accountNumber,
     movements: [deposit],
     interestRate: interest,
     pin: pin,
@@ -558,7 +729,7 @@ document.querySelector('.modal__form').addEventListener('submit', function (e) {
     transactionDetails: [{ type: 'Initial Deposit' }],
   };
 
-  // Generate username - first letter of first word + first letter of last word
+  // Generate username - first letter of first word + first letter from last word
   const names = name.toLowerCase().split(' ');
   if (names.length === 1) {
     newAccount.username = names[0].substring(0, 2);
@@ -572,15 +743,16 @@ document.querySelector('.modal__form').addEventListener('submit', function (e) {
   // Save accounts to localStorage
   saveAccounts();
 
-  // Show success message
+  // Show success message with account number
   document.querySelector('.modal__form').classList.add('hidden');
   accountCreatedMessage.classList.remove('hidden');
   document.getElementById('new-username').textContent = newAccount.username;
+  document.getElementById('new-account-number').textContent = newAccount.accountNumber;
 
-  // Auto close modal after 3 seconds
+  // Auto close modal after 5 seconds (increased time to read account number)
   setTimeout(() => {
     closeModal();
-  }, 3000);
+  }, 5000);
 });
 
 ///////////////////////////////////////
@@ -602,3 +774,7 @@ document.addEventListener('keydown', function (e) {
     closeTransactionDetails();
   }
 });
+
+// Initialize - Create usernames and load from localStorage
+createUsernames(accounts);
+loadAccounts();
