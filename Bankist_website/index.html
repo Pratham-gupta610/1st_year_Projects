@@ -51,6 +51,7 @@
           <p class="balance__date">
             As of <span class="date">05/03/2037</span>
           </p>
+          <p class="account-number" style="font-size: 1.4rem; color: #888; margin-top: 0.5rem;"></p>
         </div>
         <p class="balance__value">0000€</p>
       </div>
@@ -86,10 +87,10 @@
       <div class="operation operation--transfer">
         <h2>Transfer money</h2>
         <form class="form form--transfer">
-          <input type="text" class="form__input form__input--to" />
+          <input type="text" class="form__input form__input--to" placeholder="7 Digit No." maxlength="7" />
           <input type="number" class="form__input form__input--amount" />
           <button type="button" class="form__btn form__btn--transfer">&rarr;</button>
-          <label class="form__label">Transfer to</label>
+          <label class="form__label">Account Number</label>
           <label class="form__label">Amount</label>
         </form>
       </div>
@@ -108,11 +109,12 @@
       <div class="operation operation--close">
         <h2>Close account</h2>
         <form class="form form--close">
-          <input type="text" class="form__input form__input--user" />
+          <input type="text" class="form__input form__input--user" placeholder="username" />
           <input
             type="password"
             maxlength="6"
             class="form__input form__input--pin"
+            placeholder="PIN"
           />
           <button type="button" class="form__btn form__btn--close">&rarr;</button>
           <label class="form__label">Confirm user</label>
@@ -136,7 +138,7 @@
         <label>Full Name</label>
         <input type="text" id="account-name" required />
         
-        <label>Initial Deposit (€)</label>
+        <label>Initial Deposit</label>
         <input type="number" id="account-deposit" min="100" required />
         
         <label>Interest Rate (%)</label>
@@ -147,40 +149,50 @@
         
         <label>Currency</label>
         <select id="account-currency">
-          <option value="EUR">EUR (€)</option>
-          <option value="USD">USD ($)</option>
-          <option value="GBP">GBP (£)</option>
+          <option value="EUR">EUR (€) - Euro</option>
+          <option value="USD">USD ($) - US Dollar</option>
+          <option value="GBP">GBP (£) - British Pound</option>
+          <option value="JPY">JPY (¥) - Japanese Yen</option>
+          <option value="INR" selected>INR (₹) - Indian Rupee</option>
         </select>
         
         <label>Locale</label>
         <select id="account-locale">
           <option value="en-US">English (US)</option>
           <option value="en-GB">English (UK)</option>
+          <option value="en-IN" selected>English (India)</option>
           <option value="pt-PT">Portuguese</option>
           <option value="de-DE">German</option>
           <option value="es-ES">Spanish</option>
+          <option value="ja-JP">Japanese</option>
         </select>
         
         <button class="btn btn--create" type="submit">Create Account &rarr;</button>
       </form>
       <div class="account-created-message hidden">
         <h3>✅ Account Created Successfully!</h3>
-        <p>Your username is: <strong id="new-username"></strong></p>
-        <p>Please log in with your credentials.</p>
+        <p>Your username: <strong id="new-username"></strong></p>
+        <p>Your account number: <strong id="new-account-number" style="font-size: 2.2rem; color: #667eea;"></strong></p>
+        <p style="margin-top: 1rem; font-size: 1.4rem;">⚠️ Save these credentials securely!</p>
+        <p style="font-size: 1.3rem;">Use your <strong>PIN</strong> to login and <strong>Account Number</strong> for transfers.</p>
       </div>
     </div>
-    <!-- Add this HTML code to your index.html file, right after your existing modal-account section -->
 
-<!-- TRANSACTION DETAILS MODAL -->
-<div class="modal-transaction-details hidden">
-  <button class="btn--close-transaction-modal">&times;</button>
-  <h2 class="modal__header">Transaction Details</h2>
-  <div class="transaction-details-content">
-    <!-- Details will be inserted here dynamically -->
-  </div>
-</div>
-<div class="overlay-transaction-details hidden"></div>
+    <!-- TRANSACTION DETAILS MODAL -->
+    <div class="modal-transaction-details hidden">
+      <button class="btn--close-transaction-modal">&times;</button>
+      <h2 class="modal__header">Transaction Details</h2>
+      <div class="transaction-details-content">
+        <!-- Details will be inserted here dynamically -->
+      </div>
+    </div>
+    <div class="overlay-transaction-details hidden"></div>
     <div class="overlay-account hidden"></div>
+
+    <!-- COPYRIGHT FOOTER -->
+    <footer class="copyright">
+      <p>&copy; 2026 Bankist by Pratham Gupta. All rights reserved. | Designed & Developed with <span class="heart">❤️</span></p>
+    </footer>
 
     <script src="script.js"></script>
   </body>
